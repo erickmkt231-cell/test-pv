@@ -1340,7 +1340,8 @@ function backupImport(inp){
 
 /* ============ AUTENTICAÇÃO & NUVEM (SUPABASE) ============ */
 let sb=null,sbUser=null,cloudTimer=null;
-const sbCfg=()=>{try{return JSON.parse(localStorage.getItem('aquagest_sb')||'null')}catch(e){return null}};
+const BUILTIN_SB={url:'https://intkodbnylwswarlzqlf.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImludGtvZGJueWx3c3dhcmx6cWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTYzNzEsImV4cCI6MjA5OTg5MjM3MX0.t6L0XhTajclOClob2TmPvkbLgUa7pNIhS1ueAGebPX4'};
+const sbCfg=()=>{try{return JSON.parse(localStorage.getItem('aquagest_sb')||'null')||BUILTIN_SB}catch(e){return BUILTIN_SB}};
 function authGate(html){const g=$('#authgate');g.classList.add('show');g.innerHTML=`<div class="authcard">${html}</div>`}
 function authDone(){$('#authgate').classList.remove('show');$('#authgate').innerHTML='';if(!window.__appInit){window.__appInit=true;initApp()}else{render()}}
 async function hashPass(pw){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('aquagest|'+pw));return btoa(String.fromCharCode(...new Uint8Array(b)))}catch(e){return btoa(unescape(encodeURIComponent('aq|'+pw)))}}
@@ -1376,16 +1377,28 @@ function saveSbCfg(){
   localStorage.setItem('aquagest_sb',JSON.stringify({url,key}));
   location.reload();
 }
-function showLogin(msg){
-  authGate(`${authHead}<p>Entre com seu e-mail e senha para acessar seus dados na nuvem.</p>
+function showLogin(msg,mode){
+  mode=mode||'in';
+  authGate(`${authHead}
+  <div class="tabs" style="width:100%;display:flex;margin-bottom:16px">
+    <button style="flex:1" class="${mode==='in'?'on':''}" onclick="showLogin('','in')">Entrar</button>
+    <button style="flex:1" class="${mode==='up'?'on':''}" onclick="showLogin('','up')">Criar conta</button>
+  </div>
   ${msg?`<div class="autherr">${esc(msg)}</div>`:''}
+  ${mode==='in'?`
+  <p>Acesse o sistema com seu e-mail e senha.</p>
   <div class="fgroup"><label>E-mail</label><input id="lE" type="email" autocomplete="email"></div>
   <div class="fgroup"><label>Senha</label><input id="lP" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')sbLogin()"></div>
-  <button class="btn btn-p" style="width:100%;padding:13px" onclick="sbLogin()">Entrar</button>
-  <button class="btn btn-o" style="width:100%;margin-top:8px" onclick="sbSignup()">Criar conta nova</button>
+  <button class="btn btn-p" style="width:100%;padding:13px" onclick="sbLogin()">Entrar</button>`
+  :`
+  <p>Crie sua conta — leva poucos segundos.</p>
+  <div class="fgroup"><label>E-mail</label><input id="lE" type="email" autocomplete="email"></div>
+  <div class="fgroup"><label>Senha (mínimo 6 caracteres)</label><input id="lP" type="password" autocomplete="new-password"></div>
+  <div class="fgroup"><label>Repita a senha</label><input id="lP2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')sbSignup()"></div>
+  <button class="btn btn-p" style="width:100%;padding:13px" onclick="sbSignup()">Criar minha conta</button>`}
   <div style="display:flex;justify-content:space-between;margin-top:14px">
-    <a href="#" style="font-size:12px" onclick="showSbSetup();return false">Configurar Supabase</a>
-    <a href="#" style="font-size:12px" onclick="authDone();toast('Você entrou sem nuvem — dados apenas neste dispositivo','📱');return false">Entrar sem nuvem</a>
+    <a href="#" style="font-size:12px" onclick="showSbSetup();return false">Config. avançada</a>
+    <a href="#" style="font-size:12px" onclick="authDone();toast('Modo offline — dados apenas neste dispositivo','📱');return false">Entrar sem internet</a>
   </div>`);
 }
 async function sbLogin(){
@@ -1399,14 +1412,16 @@ async function sbLogin(){
 }
 async function sbSignup(){
   const email=$('#lE').value.trim(),password=$('#lP').value;
+  const p2=document.getElementById('lP2');
   if(!email||!password)return toast('Preencha e-mail e senha para criar a conta','⚠️');
   if(password.length<6)return toast('A senha precisa de pelo menos 6 caracteres','⚠️');
+  if(p2&&p2.value!==password)return toast('As senhas não conferem','⚠️');
   try{
     const{data,error}=await sb.auth.signUp({email,password});
-    if(error)return showLogin(error.message);
+    if(error)return showLogin(error.message.includes('already registered')?'Este e-mail já tem conta — use a aba Entrar.':error.message,'up');
     if(data.session){sbUser=data.user;await cloudLoad();authDone();toast('Conta criada com sucesso!','🎉')}
-    else showLogin('Conta criada! Confirme pelo link enviado ao seu e-mail e entre novamente. (Dica: no Supabase dá para desativar a confirmação de e-mail.)');
-  }catch(e){showLogin('Falha de conexão com o Supabase.')}
+    else showLogin('Conta criada! Confirme pelo link enviado ao seu e-mail e depois entre. (Dica: desativando o "Confirm email" no Supabase, a entrada é imediata.)','in');
+  }catch(e){showLogin('Falha de conexão com o Supabase.','up')}
 }
 function showLocalLogin(msg){
   authGate(`${authHead}<p>Digite sua senha para entrar.</p>
