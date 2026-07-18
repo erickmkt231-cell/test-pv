@@ -1386,7 +1386,17 @@ async function loadRanking(){
 /* ============ AUTENTICAÇÃO & NUVEM (SUPABASE) ============ */
 let sb=null,sbUser=null,cloudTimer=null;
 const BUILTIN_SB={url:'https://intkodbnylwswarlzqlf.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImludGtvZGJueWx3c3dhcmx6cWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTYzNzEsImV4cCI6MjA5OTg5MjM3MX0.t6L0XhTajclOClob2TmPvkbLgUa7pNIhS1ueAGebPX4'};
-const sbCfg=()=>{try{return JSON.parse(localStorage.getItem('aquagest_sb')||'null')||BUILTIN_SB}catch(e){return BUILTIN_SB}};
+const cleanSbUrl=u=>String(u||'').trim().replace(/\/(rest|auth|storage|realtime)\b.*$/,'').replace(/\/+$/,'');
+const sbCfg=()=>{
+  try{
+    const saved=JSON.parse(localStorage.getItem('aquagest_sb')||'null');
+    if(!saved||!saved.url||!saved.key)return BUILTIN_SB;
+    const url=cleanSbUrl(saved.url);
+    // se a config salva é do mesmo projeto da embutida (ou está malformada), usa a embutida e descarta a antiga
+    if(url===BUILTIN_SB.url||!url.startsWith('https://')){localStorage.removeItem('aquagest_sb');return BUILTIN_SB}
+    return{url,key:saved.key};
+  }catch(e){return BUILTIN_SB}
+};
 function authGate(html){const g=$('#authgate');g.classList.add('show');g.innerHTML=`<div class="authcard">${html}</div>`}
 function authDone(){$('#authgate').classList.remove('show');$('#authgate').innerHTML='';if(!window.__appInit){window.__appInit=true;initApp()}else{render()}}
 async function hashPass(pw){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('aquagest|'+pw));return btoa(String.fromCharCode(...new Uint8Array(b)))}catch(e){return btoa(unescape(encodeURIComponent('aq|'+pw)))}}
@@ -1417,7 +1427,7 @@ function showSbSetup(){
   <button class="btn btn-o" style="width:100%;margin-top:8px" onclick="showWelcome()">Voltar</button>`);
 }
 function saveSbCfg(){
-  const url=$('#sbU').value.trim().replace(/\/$/,''),key=$('#sbK').value.trim();
+  const url=cleanSbUrl($('#sbU').value),key=$('#sbK').value.trim();
   if(!url.startsWith('https://')||!key)return toast('Preencha a URL e a chave anon','⚠️');
   localStorage.setItem('aquagest_sb',JSON.stringify({url,key}));
   location.reload();
@@ -1454,7 +1464,7 @@ async function sbLogin(){
     const{data,error}=await sb.auth.signInWithPassword({email,password});
     if(error)return showLogin(error.message.includes('Invalid')?'E-mail ou senha incorretos.':error.message);
     sbUser=data.user;await cloudLoad();authDone();toast('Bem-vindo de volta!','👋');
-  }catch(e){showLogin('Falha de conexão. Verifique a internet e a configuração do Supabase.')}
+  }catch(e){showLogin('Falha de conexão: '+(e&&e.message?e.message:'erro desconhecido')+'. Toque em "Config. avançada" e confira se a URL é https://intkodbnylwswarlzqlf.supabase.co (sem /rest/v1).')}
 }
 async function sbSignup(){
   const email=$('#lE').value.trim(),password=$('#lP').value;
