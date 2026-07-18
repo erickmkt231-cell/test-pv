@@ -226,7 +226,7 @@ function sizeCost(sz){return sum(Object.values(sz.costs||{}))}
 function sizeById(id){return DB.sizes.find(s=>s.id===id)}
 function speciesById(id){return DB.species.find(s=>s.id===id)}
 function custById(id){return DB.customers.find(c=>c.id===id)}
-function sizeLabel(sz){const sp=speciesById(sz.speciesId);return `${sp?sp.name:'?'} ${sz.cm} cm`}
+function sizeLabel(sz){if(!sz)return 'Item removido';const sp=speciesById(sz.speciesId);return `${sp?sp.name:'?'} ${sz.cm} cm`}
 function calcItem(it){
   const sz=sizeById(it.sizeId);const cost=sz?sizeCost(sz):0;
   const gross=it.qty*it.unit-(it.disc||0);
@@ -434,7 +434,7 @@ function vDash(){
       ${hl('🏆','Maior venda',biggest?saleCustName(biggest)+' · '+fmt(calcSale(biggest).total):'—')}
       ${hl('🔥','Produto mais vendido',topSize?sizeLabel(sizeById(topSize[0]))+' · '+fnum(topSize[1].qty)+' un':'—')}
       ${hl('💎','Espécie mais lucrativa',topSpProfit?speciesById(topSpProfit[0])?.name+' · '+fmt(topSpProfit[1].profit)+' de lucro':'—')}
-      ${hl('📏','Tamanho mais vendido',topSize?sizeById(topSize[0]).cm+' cm':'—')}
+      ${hl('📏','Tamanho mais vendido',topSize&&sizeById(topSize[0])?sizeById(topSize[0]).cm+' cm':'—')}
     </div>
   </div>`;
   const days=[];const d0=new Date(a+'T12:00:00'),d1=new Date(b+'T12:00:00');
@@ -1521,6 +1521,9 @@ async function cloudLoad(){
     const shared=cat.data&&cat.data.data;
     const personal=mine.data&&mine.data.data;
     DB=mergeDB(shared,personal&&personal.sales?personal:personal);
+    // remove vendas órfãs (de peixes que foram apagados do catálogo) para nunca quebrar as telas
+    const validSz=new Set(DB.sizes.map(z=>z.id));
+    DB.sales=(DB.sales||[]).filter(s=>s.items&&s.items.every(it=>validSz.has(it.sizeId)));
     const pn=localStorage.getItem('aquagest_pendingname');
     if(pn){DB.settings.sellerName=pn;localStorage.removeItem('aquagest_pendingname')}
     localStorage.setItem(KEY,JSON.stringify(DB));
