@@ -212,65 +212,13 @@ function closeModal(){$('#modalroot').innerHTML=''}
 function csvExport(rows,name){const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');const b=new Blob(["﻿"+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name+'.csv';a.click();toast('Arquivo exportado')}
 
 /* ============ STORE (camada de dados — trocar por API/PostgreSQL depois) ============ */
-const KEY='aquagest_v2';
+const KEY='aquagest_v3';
 let DB=null;
 function saveDB(){localStorage.setItem(KEY,JSON.stringify(DB));cloudSave()}
 function loadDB(){const raw=localStorage.getItem(KEY);if(raw){DB=JSON.parse(raw)}else{DB=seed();saveDB()}}
 function seed(){
-  const sp=(n,d)=>({id:uid()+n.slice(0,2),name:n,desc:d,status:'ativo',obs:'',emoji:{'Tilápia':'🐟','Pacu':'🐡','Carpa Capim':'🎏','Carpa Colorida':'🎏','Pintado':'🐠','Tambacu':'🐟','Lambari':'🐠','Kinguio':'🐠','Koi':'🎏'}[n]||'🐟'});
-  const species=[sp('Tilápia','Alevinos e juvenis de tilápia do Nilo'),sp('Pacu','Pacu para pesqueiros e engorda'),sp('Carpa Capim','Carpa herbívora para controle de vegetação'),sp('Carpa Colorida','Carpa ornamental'),sp('Pintado','Surubim pintado juvenil'),sp('Tambacu','Híbrido tambaqui × pacu'),sp('Lambari','Lambari para isca e consumo'),sp('Kinguio','Peixe ornamental'),sp('Koi','Carpa ornamental premium')];
-  const mk=(spName,cm,price,costs,stock,min)=>{const s=species.find(x=>x.name===spName);return{id:uid()+cm,speciesId:s.id,cm,price,costs,stock,min}};
-  const C=(compra,racao,frete,emb)=>({compra,racao,medicamentos:0.02,energia:0.03,funcionarios:0.05,frete,embalagem:emb,oxigenio:0.02,impostos:0.04,perdas:0.03,outros:0});
-  const sizes=[
-    mk('Tilápia',5,0.45,C(0.08,0.06,0.02,0.01),12000,3000), mk('Tilápia',8,0.75,C(0.12,0.10,0.03,0.01),8500,2000),
-    mk('Tilápia',10,1.10,C(0.16,0.14,0.03,0.02),6200,1500), mk('Tilápia',15,1.90,C(0.25,0.28,0.05,0.02),3100,800),
-    mk('Pacu',8,0.90,C(0.15,0.12,0.03,0.01),4200,1000), mk('Pacu',12,1.60,C(0.24,0.22,0.05,0.02),2600,600),
-    mk('Pacu',20,3.50,C(0.55,0.60,0.10,0.04),900,300),
-    mk('Carpa Capim',10,1.30,C(0.22,0.15,0.04,0.02),2100,500), mk('Carpa Capim',20,3.20,C(0.60,0.45,0.09,0.03),750,200),
-    mk('Carpa Colorida',10,2.20,C(0.40,0.20,0.05,0.02),1300,300),
-    mk('Pintado',12,2.80,C(0.70,0.40,0.08,0.03),980,250), mk('Tambacu',10,1.20,C(0.20,0.16,0.04,0.02),3400,800),
-    mk('Lambari',5,0.25,C(0.05,0.03,0.01,0.005),18000,5000), mk('Kinguio',8,3.00,C(0.60,0.25,0.06,0.03),650,150),
-    mk('Koi',15,18.00,C(4.50,1.80,0.30,0.10),220,50)
-  ];
-  const cst=(n,t,city,ph)=>({id:uid()+n.slice(0,2),name:n,type:t,phone:ph,whats:ph,city,state:'PR',address:'',obs:'',created:daysAgo(Math.floor(Math.random()*300)+30)});
-  const customers=[
-    cst('Pesqueiro Água Viva','Pesqueiro','Londrina','(43) 99911-2233'),cst('Pesqueiro do Lago Azul','Pesqueiro','Cambé','(43) 99822-3344'),
-    cst('Sítio Boa Esperança','Produtor','Rolândia','(43) 99733-4455'),cst('AgroFish Revenda','Revendedor','Arapongas','(43) 99644-5566'),
-    cst('Marcos Andrade','Cliente Final','Londrina','(43) 99555-6677'),cst('Pesque Pague Recanto','Pesqueiro','Ibiporã','(43) 99466-7788'),
-    cst('Fazenda Santa Rita','Produtor','Sertanópolis','(43) 99377-8899'),cst('Aquário Center Norte','Revendedor','Maringá','(44) 99288-9900'),
-    cst('Chácara do Vô Pedro','Cliente Final','Jataizinho','(43) 99199-0011'),cst('Piscicultura Irmãos Lima','Produtor','Bela Vista do Paraíso','(43) 98811-1122')
-  ];
-  // vendas de exemplo (90 dias)
-  const sales=[];const pays=['PIX','Dinheiro','Transferência','Cartão','Boleto'];
-  for(let i=0;i<64;i++){
-    const d=daysAgo(Math.floor(Math.pow(Math.random(),1.4)*88));
-    const c=Math.random()<0.85?customers[Math.floor(Math.random()*customers.length)]:null;
-    const nItems=1+Math.floor(Math.random()*3);const items=[];let sub=0;
-    for(let j=0;j<nItems;j++){
-      const sz=sizes[Math.floor(Math.random()*sizes.length)];
-      const qty=Math.max(10,Math.round((Math.random()*800+50)/10)*10);
-      items.push({sizeId:sz.id,qty,unit:sz.price,obs:''});sub+=qty*sz.price;
-    }
-    const discount=Math.random()<0.3?Math.round(sub*0.05):0;const total=sub-discount;
-    let payments;
-    if(Math.random()<0.25){const v1=Math.round(total*0.6*100)/100;payments=[{method:'Cartão',value:v1},{method:'Dinheiro',value:Math.round((total-v1)*100)/100}]}
-    else{payments=[{method:pays[Math.floor(Math.random()*pays.length)],value:total}]}
-    sales.push({id:uid()+i,date:d,customerId:c?c.id:'',items,discount,payments,status:'pago',obs:''});
-  }
-  const expenses=[];
-  const excat=[['Combustível','Variável',1200],['Energia','Fixa',2350],['Funcionários','Fixa',6800],['Pró-labore','Fixa',5000],['Impostos','Variável',1900],['Manutenção','Variável',780],['Ração (geral)','Variável',4200],['Internet','Recorrente',180],['Telefone','Recorrente',120],['Marketing','Variável',450]];
-  for(let m=0;m<3;m++){excat.forEach(([cat,tp,v])=>{expenses.push({id:uid()+cat,date:daysAgo(m*30+Math.floor(Math.random()*8)+2),category:cat,type:tp,desc:cat+' — competência mensal',value:Math.round(v*(0.9+Math.random()*0.25))})})}
-  const investments=[
-    {id:uid()+'i1',date:daysAgo(200),name:'Tanque escavado 400m²',category:'Tanques',value:18500,obs:''},
-    {id:uid()+'i2',date:daysAgo(140),name:'Bomba submersa 3cv',category:'Bombas',value:4200,obs:''},
-    {id:uid()+'i3',date:daysAgo(75),name:'Caminhão de transporte (usado)',category:'Caminhões',value:86000,obs:''},
-    {id:uid()+'i4',date:daysAgo(30),name:'Aerador chafariz 2cv',category:'Equipamentos',value:3100,obs:''}
-  ];
-  const stockMoves=[];
-  const withdrawals=[{id:uid()+'w1',date:daysAgo(35),period:'Mês',value:2400,obs:'Comissão de referência do mês anterior'}];
-  const payables=[{id:uid()+'p1',due:daysAgo(-6),desc:'Fornecedor de ração — NF 4432',value:3800,status:'aberto'},{id:uid()+'p2',due:daysAgo(-14),desc:'Energia elétrica',value:2280,status:'aberto'}];
-  const receivables=[{id:uid()+'r1',due:daysAgo(-4),desc:'Pesqueiro Água Viva — boleto 30d',value:2650,status:'aberto'},{id:uid()+'r2',due:daysAgo(-10),desc:'AgroFish Revenda — parcela 2/2',value:1890,status:'aberto'}];
-  return{settings:{company:'AquaGest Piscicultura',commissionPct:15,currency:'BRL',theme:'light'},species,sizes,customers,sales,expenses,investments,stockMoves,withdrawals,payables,receivables};
+  return{settings:{company:'AquaGest Piscicultura',commissionPct:15,currency:'BRL',theme:'light',sellerName:''},
+    species:[],sizes:[],customers:[],sales:[],expenses:[],investments:[],stockMoves:[],withdrawals:[],payables:[],receivables:[]};
 }
 
 /* ============ CÁLCULOS CENTRAIS ============ */
@@ -304,7 +252,8 @@ function salesBetween(a,b){return DB.sales.filter(s=>s.date>=a&&s.date<=b)}
 function expensesBetween(a,b){return DB.expenses.filter(e=>e.date>=a&&e.date<=b)}
 function currentStock(sz){
   const moves=DB.stockMoves.filter(m=>m.sizeId===sz.id);
-  const sold=sum(DB.sales.flatMap(s=>s.items).filter(i=>i.sizeId===sz.id),i=>i.qty);
+  const allSales=DB.sales.concat(window.othersSales||[]);
+  const sold=sum(allSales.flatMap(s=>s.items).filter(i=>i.sizeId===sz.id),i=>i.qty);
   return sz.stock+sum(moves,m=>m.type==='entrada'||m.type==='reposicao'?m.qty:-m.qty)-sold;
 }
 function commissionTotals(){
@@ -727,6 +676,13 @@ function histEstoque(){
 /* ============ NOVA VENDA ============ */
 let saleDraft=null;
 function vNovaVenda(){
+  if(!DB.sizes.length){
+    $('#view').innerHTML=`<div class="pagehead"><h2>Nova venda</h2></div>
+    <div class="card empty"><div class="big">🐟</div><b>Nenhum peixe cadastrado ainda.</b><br>
+    Antes de vender, cadastre as espécies, tamanhos e preços — isso é feito uma vez só (por você ou pelo CEO) e vale para todos os vendedores.<br><br>
+    <button class="btn btn-p" style="padding:12px 22px" onclick="go('especies')">🐟 Configurar Meus Peixes</button></div>`;
+    return;
+  }
   if(!saleDraft)saleDraft={cliente:{name:'',phone:'',city:''},date:today(),discount:'',payments:[{method:'PIX',value:''}],obs:'',items:[newItem()]};
   $('#view').innerHTML=`
   <div class="pagehead"><h2>Nova venda</h2><p>Preencha só o que quiser — cliente é opcional e todos os valores calculam sozinhos.</p></div>
@@ -1361,22 +1317,39 @@ function vRanking(){
 }
 async function loadRanking(){
   const box=document.getElementById('rankBox');if(!box)return;
-  if(!sb||!sbUser){box.innerHTML='<div class="card empty"><div class="big">☁️</div>Entre com sua conta (nuvem) para participar do ranking.</div>';return}
+  if(!sb||!sbUser){box.innerHTML='<div class="card empty"><div class="big">☁️</div>Entre com sua conta (nuvem) para ver o ranking da equipe.</div>';return}
   try{
     const{data,error}=await sb.from('app_state').select('user_id,data');
     if(error)throw error;
+    window.teamRows=data||[];
+    window.othersSales=(data||[]).filter(r=>r.user_id!==sbUser.id).flatMap(r=>((r.data||{}).sales)||[]);
     const a=rankMode==='mes'?today().slice(0,8)+'01':rankMode==='ano'?today().slice(0,4)+'-01-01':'0000-01-01';
-    const rows=(data||[]).map(r=>{
-      const d=r.data||{};const szMap={};(d.sizes||[]).forEach(z=>szMap[z.id]=z);
-      let fat=0,cost=0,qty=0,n=0;
-      (d.sales||[]).filter(s=>s.date>=a).forEach(s=>{
-        let sub=0;s.items.forEach(it=>{sub+=it.qty*it.unit;const z=szMap[it.sizeId];cost+=(z?Object.values(z.costs||{}).reduce((x,y)=>x+(+y||0),0):0)*it.qty;qty+=it.qty});
-        fat+=sub-((s.items.reduce((t,it)=>t+(it.disc||0),0))+(+s.discount||0));n++;
+    const pct=(DB.settings.commissionPct||15)/100;
+    const szMap={};DB.sizes.forEach(z=>szMap[z.id]=z); // catálogo compartilhado: mesmos peixes e custos para todos
+    const calc=(sales)=>{
+      let fat=0,cost=0,qty=0,n=0,comm=0;
+      sales.forEach(s=>{
+        let sub=0,cst=0,q=0;
+        s.items.forEach(it=>{sub+=it.qty*it.unit;const z=szMap[it.sizeId];cst+=(z?Object.values(z.costs||{}).reduce((x,y)=>x+(+y||0),0):0)*it.qty;q+=it.qty});
+        const tot=sub-((s.items.reduce((t,it)=>t+(it.disc||0),0))+(+s.discount||0));
+        const profit=tot-cst;
+        fat+=tot;cost+=cst;qty+=q;n++;if(profit>0)comm+=profit*pct;
       });
-      return{uid:r.user_id,name:(d.settings&&(d.settings.sellerName||d.settings.company))||'Vendedor',fat,profit:fat-cost,qty,n,me:sbUser&&r.user_id===sbUser.id};
+      return{fat,cost,profit:fat-cost,qty,n,comm};
+    };
+    const rows=(data||[]).map(r=>{
+      const d=r.data||{};
+      const period=calc((d.sales||[]).filter(s=>s.date>=a));
+      const allTime=calc(d.sales||[]);
+      const received=((d.withdrawals)||[]).reduce((t,w)=>t+(+w.value||0),0);
+      return{uid:r.user_id,
+        name:(d.settings&&(d.settings.sellerName||d.settings.company))||'Vendedor',
+        ...period,commAllTime:allTime.comm,received,toPay:Math.max(0,allTime.comm-received),
+        me:sbUser&&r.user_id===sbUser.id};
     }).sort((x,y)=>y.fat-x.fat);
-    if(!rows.length){box.innerHTML='<div class="card empty"><div class="big">🏁</div>Nenhum vendedor ainda. Registre a primeira venda!</div>';return}
-    const max=rows[0].fat||1;
+    if(!rows.length||!rows.some(r=>r.n)){box.innerHTML='<div class="card empty"><div class="big">🏁</div>Nenhuma venda registrada ainda. Assim que os vendedores venderem, o ranking aparece aqui.</div>';if(!rows.length)return}
+    const tFat=rows.reduce((t,r)=>t+r.fat,0),tProfit=rows.reduce((t,r)=>t+r.profit,0),tPay=rows.reduce((t,r)=>t+r.toPay,0),tQty=rows.reduce((t,r)=>t+r.qty,0);
+    const max=rows[0]&&rows[0].fat||1;
     const medal=['🥇','🥈','🥉'];
     const podium=rows.slice(0,3).map((r,i)=>`
       <div class="card" style="text-align:center;${i===0?'background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border:none':''}">
@@ -1386,20 +1359,27 @@ async function loadRanking(){
         <div style="font-size:11.5px;${i===0?'opacity:.85':'color:var(--text3)'}">${r.n} vendas · ${fnum(r.qty)} peixes · lucro ${fmt(r.profit)}</div>
       </div>`).join('');
     box.innerHTML=`
+    <div class="grid g4" style="margin-bottom:14px">
+      <div class="card kpi"><div class="lb">🏢 Faturamento da empresa</div><div class="vl">${fmt(tFat)}</div><div class="sub">${rankMode==='mes'?'este mês':rankMode==='ano'?'este ano':'geral'} · ${fnum(tQty)} peixes</div></div>
+      <div class="card kpi"><div class="lb">💰 Lucro da empresa</div><div class="vl ${tProfit>=0?'pos':'neg'}">${fmt(tProfit)}</div><div class="sub">antes das despesas gerais</div></div>
+      <div class="card kpi"><div class="lb">💼 Comissões a pagar</div><div class="vl neg">${fmt(tPay)}</div><div class="sub">soma de todos os vendedores</div></div>
+      <div class="card kpi"><div class="lb">👥 Vendedores</div><div class="vl">${rows.length}</div><div class="sub">com conta no sistema</div></div>
+    </div>
     <div class="grid g3" style="margin-bottom:14px">${podium}</div>
     <div class="card" style="padding:0"><div class="tablewrap"><table>
-      <thead><tr><th>#</th><th>Vendedor</th><th class="right">Vendas</th><th class="right hidemob">Peixes</th><th class="right">Faturamento</th><th class="right hidemob">Lucro</th><th style="width:26%" class="hidemob"></th></tr></thead><tbody>
+      <thead><tr><th>#</th><th>Vendedor</th><th class="right">Vendas</th><th class="right hidemob">Peixes</th><th class="right">Faturamento</th><th class="right hidemob">Lucro</th><th class="right">Comissão do período</th><th class="right">A pagar (total)</th></tr></thead><tbody>
       ${rows.map((r,i)=>`<tr ${r.me?'style="background:var(--primary-soft)"':''}>
         <td><b>${i<3?medal[i]:i+1+'º'}</b></td>
         <td><div style="display:flex;gap:9px;align-items:center"><span class="avatar" style="background:${avatarColor(r.name)}">${esc(r.name[0].toUpperCase())}</span><b>${esc(r.name)}</b>${r.me?'<span class="chip c-amber">você</span>':''}</div></td>
         <td class="right mono">${r.n}</td><td class="right mono hidemob">${fnum(r.qty)}</td>
         <td class="right mono"><b>${fmt(r.fat)}</b></td>
         <td class="right mono hidemob ${r.profit>=0?'pos':'neg'}">${fmt(r.profit)}</td>
-        <td class="hidemob"><div class="progress"><i style="width:${Math.max(2,r.fat/max*100)}%"></i></div></td></tr>`).join('')}
+        <td class="right mono pos">${fmt(r.comm)}</td>
+        <td class="right mono"><b class="${r.toPay>0.005?'neg':'pos'}">${fmt(r.toPay)}</b></td></tr>`).join('')}
       </tbody></table></div></div>
-    <p class="muted" style="font-size:12px;margin-top:10px">🔒 O ranking é visível para todos os vendedores logados. Cada vendedor só consegue alterar os próprios dados.</p>`;
+    <p class="muted" style="font-size:12px;margin-top:10px">🔒 Todos os vendedores logados veem estes números — o CEO usa a coluna <b>"A pagar"</b> (comissão acumulada − já recebida) para fazer os pagamentos. Quando o vendedor registra o recebimento na Carteira de Comissão, o valor zera aqui.</p>`;
   }catch(e){
-    box.innerHTML='<div class="card empty"><div class="big">⚠️</div>Não foi possível carregar o ranking.<br>Verifique se você rodou o SQL de atualização do ranking no Supabase (veja o guia).</div>';
+    box.innerHTML='<div class="card empty"><div class="big">⚠️</div>Não foi possível carregar o ranking.<br>Verifique se você rodou o SQL de atualização no Supabase (veja o passo a passo).</div>';
   }
 }
 
@@ -1502,21 +1482,58 @@ async function localLogin(){
   if(h===localStorage.getItem('aquagest_pass')){authDone()}
   else showLocalLogin('Senha incorreta.');
 }
+/* Divisão dos dados: catálogo compartilhado (todos) × dados do vendedor */
+const SHARED_ARRS=['species','sizes','customers','expenses','investments','payables','receivables','stockMoves'];
+function splitDB(){
+  const shared={settings:{company:DB.settings.company,commissionPct:DB.settings.commissionPct,currency:DB.settings.currency||'BRL'}};
+  SHARED_ARRS.forEach(k=>shared[k]=DB[k]||[]);
+  const personal={sales:DB.sales||[],withdrawals:DB.withdrawals||[],settings:{sellerName:DB.settings.sellerName||'',theme:DB.settings.theme||'light'}};
+  return{shared,personal};
+}
+function mergeDB(shared,personal){
+  const base=seed();const d={...base};
+  if(shared){SHARED_ARRS.forEach(k=>d[k]=shared[k]||[])}
+  d.sales=(personal&&personal.sales)||[];
+  d.withdrawals=(personal&&personal.withdrawals)||[];
+  d.settings={...base.settings,
+    ...(shared&&shared.settings?shared.settings:{}),
+    sellerName:(personal&&personal.settings&&personal.settings.sellerName)||'',
+    theme:(personal&&personal.settings&&personal.settings.theme)||'light'};
+  return d;
+}
 async function cloudLoad(){
   try{
-    const{data}=await sb.from('app_state').select('data').eq('user_id',sbUser.id).maybeSingle();
-    if(data&&data.data){DB=data.data;localStorage.setItem(KEY,JSON.stringify(DB))}
-    else{await sb.from('app_state').upsert({user_id:sbUser.id,data:DB})}
+    const[cat,mine,all]=await Promise.all([
+      sb.from('catalog').select('data').eq('id',1).maybeSingle(),
+      sb.from('app_state').select('data').eq('user_id',sbUser.id).maybeSingle(),
+      sb.from('app_state').select('user_id,data')
+    ]);
+    const shared=cat.data&&cat.data.data;
+    const personal=mine.data&&mine.data.data;
+    DB=mergeDB(shared,personal&&personal.sales?personal:personal);
     const pn=localStorage.getItem('aquagest_pendingname');
-    if(pn){DB.settings.sellerName=pn;localStorage.removeItem('aquagest_pendingname');saveDB()}
+    if(pn){DB.settings.sellerName=pn;localStorage.removeItem('aquagest_pendingname')}
+    localStorage.setItem(KEY,JSON.stringify(DB));
+    // vendas dos outros vendedores (para estoque global e visão do CEO)
+    window.othersSales=(all.data||[]).filter(r=>r.user_id!==sbUser.id).flatMap(r=>((r.data||{}).sales)||[]);
+    window.teamRows=all.data||[];
+    // se o catálogo ainda não existe na nuvem, cria; garante também o registro pessoal
+    const sp=splitDB();
+    if(!shared)await sb.from('catalog').upsert({id:1,data:sp.shared});
+    if(!personal||pn)await sb.from('app_state').upsert({user_id:sbUser.id,data:sp.personal});
   }catch(e){toast('Não foi possível carregar da nuvem — usando dados locais','⚠️')}
 }
 function cloudSave(){
   if(!sb||!sbUser)return;
   clearTimeout(cloudTimer);
   cloudTimer=setTimeout(async()=>{
-    try{await sb.from('app_state').upsert({user_id:sbUser.id,data:DB,updated_at:new Date().toISOString()})}
-    catch(e){toast('Falha ao sincronizar com a nuvem','⚠️')}
+    try{
+      const sp=splitDB();
+      await Promise.all([
+        sb.from('app_state').upsert({user_id:sbUser.id,data:sp.personal,updated_at:new Date().toISOString()}),
+        sb.from('catalog').upsert({id:1,data:sp.shared,updated_at:new Date().toISOString()})
+      ]);
+    }catch(e){toast('Falha ao sincronizar com a nuvem','⚠️')}
   },1200);
 }
 async function doLogout(){
