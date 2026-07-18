@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atualização — Ranking + Aplicativo (APK)</title><style>
+body{font-family:system-ui,sans-serif;max-width:760px;margin:0 auto;padding:30px 20px;color:#1a2233;line-height:1.6;background:#f7f8fa}
+h1{font-size:25px}h2{font-size:19px;margin-top:34px;padding-top:14px;border-top:2px solid #e3e7ee}
+.step{background:#fff;border:1px solid #e3e7ee;border-radius:12px;padding:16px 20px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.step b.n{display:inline-block;background:#0E7490;color:#fff;border-radius:50%;width:26px;height:26px;text-align:center;line-height:26px;margin-right:8px}
+code,pre{background:#0b1220;color:#d7e3f4;border-radius:8px;font-size:13px}
+code{padding:2px 7px}pre{padding:14px 16px;overflow-x:auto;white-space:pre-wrap}
+.dica{background:#e0f2f7;border-left:4px solid #0E7490;border-radius:8px;padding:12px 16px;margin:14px 0}
+.atencao{background:#fef3e2;border-left:4px solid #d97706;border-radius:8px;padding:12px 16px;margin:14px 0}
+</style></head><body>
+<h1>🏆 Atualização: Ranking de Vendedores + 📱 Aplicativo</h1>
+
+<h2>Parte 1 — Atualizar as permissões no Supabase (obrigatório para o ranking)</h2>
+<p>Antes, cada vendedor só enxergava os próprios dados. Agora todos os vendedores logados podem <b>ver</b> os dados uns dos outros (para o ranking), mas cada um só pode <b>alterar</b> os seus.</p>
+<div class="step"><b class="n">1</b>No Supabase, abra o <b>SQL Editor</b> → <b>New query</b>, cole e clique em <b>Run</b>:
+<pre>drop policy if exists "usuario_acessa_so_seus_dados" on public.app_state;
+
+create policy "vendedores_leem_tudo"
+  on public.app_state for select
+  to authenticated using (true);
+
+create policy "insere_so_o_proprio"
+  on public.app_state for insert
+  to authenticated with check (auth.uid() = user_id);
+
+create policy "atualiza_so_o_proprio"
+  on public.app_state for update
+  to authenticated using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "apaga_so_o_proprio"
+  on public.app_state for delete
+  to authenticated using (auth.uid() = user_id);</pre></div>
+<div class="step"><b class="n">2</b>Se ainda não fez: <b>Authentication → Sign In / Providers → Email → desative "Confirm email"</b>.</div>
+<div class="atencao">🔒 <b>Sobre privacidade:</b> o ranking é público <b>entre os vendedores logados</b> — quem não tem conta não vê nada. É o formato mais seguro para dados financeiros.</div>
+
+<h2>Parte 2 — Subir os novos arquivos no GitHub</h2>
+<div class="step"><b class="n">1</b>No seu repositório, use <b>Add file → Upload files</b> e envie <b>todos estes arquivos juntos</b> (eles substituem os antigos):<br>
+<code>index.html</code> · <code>manifest.json</code> · <code>sw.js</code> · <code>icon-192.png</code> · <code>icon-512.png</code> · <code>icon-maskable-512.png</code></div>
+<div class="step"><b class="n">2</b><b>Commit changes</b> e aguarde 1–2 minutos. Abra o site e confira: deve aparecer a aba <b>🏆 Ranking de Vendedores</b> no menu.</div>
+<div class="dica">Cada vendedor cria a própria conta na aba <b>Criar conta</b> (com o nome que aparece no ranking). O nome também pode ser alterado depois em Configurações.</div>
+
+<h2>Parte 3 — Instalar como aplicativo (sem APK)</h2>
+<p>Com esta atualização o sistema virou um <b>PWA</b> — um aplicativo instalável direto do navegador:</p>
+<div class="step"><b>Android (Chrome):</b> abra o site → menu ⋮ → <b>"Adicionar à tela inicial"</b> ou <b>"Instalar aplicativo"</b>. Vira um app com ícone, tela cheia, sem barra de navegador.</div>
+<div class="step"><b>iPhone (Safari):</b> abra o site → botão Compartilhar → <b>"Adicionar à Tela de Início"</b>.</div>
+<p>Ele abre instantâneo, funciona offline (os dados sincronizam quando voltar a internet) e <b>se atualiza sozinho</b> quando você publicar uma versão nova no GitHub.</p>
+
+<h2>Parte 4 — Gerar o APK de verdade (para compartilhar o arquivo)</h2>
+<p>Para ter um arquivo <code>.apk</code> que você pode mandar no WhatsApp e instalar em qualquer Android:</p>
+<div class="step"><b class="n">1</b>Acesse <b>pwabuilder.com</b> e cole a URL do seu site (a do GitHub Pages). Clique em <b>Start</b>.</div>
+<div class="step"><b class="n">2</b>Ele analisa seu PWA (manifest e service worker já estão prontos ✓). Clique em <b>Package for Stores → Android</b>.</div>
+<div class="step"><b class="n">3</b>Baixe o pacote. Dentro do .zip vem o <b>APK</b> pronto para instalar (use o arquivo "signed" para uso próprio).</div>
+<div class="step"><b class="n">4</b>Envie o APK para os vendedores. No Android, ao instalar, é preciso permitir "instalar de fontes desconhecidas" (normal para apps fora da Play Store).</div>
+<div class="dica">💡 O APK é uma "casca" que abre seu site — ou seja, quando você atualizar o sistema no GitHub, <b>todos os apps atualizam sozinhos</b>, sem gerar novo APK.</div>
+
+<h2>Checklist final</h2>
+<div class="step">☐ SQL do ranking rodado no Supabase<br>☐ "Confirm email" desativado<br>☐ 6 arquivos enviados ao GitHub<br>☐ Site abre com abas Entrar / Criar conta<br>☐ Conta criada com nome de vendedor<br>☐ Aba Ranking carregando<br>☐ App instalado na tela inicial (ou APK gerado no PWABuilder)</div>
+</body></html>

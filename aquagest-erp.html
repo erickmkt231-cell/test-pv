@@ -3,15 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E7490">
-<meta name="description" content="AquaGest — sistema de gestão para piscicultura: vendas, estoque, comissões e ranking de vendedores.">
-<link rel="manifest" href="./manifest.json">
-<link rel="icon" type="image/png" href="./icon-192.png">
-<link rel="apple-touch-icon" href="./icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AquaGest">
+<meta name="theme-color" content="#0B1220">
 <title>AquaGest · ERP de Piscicultura</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -316,7 +308,6 @@ function commissionTotals(){
 /* ============ ROUTER / SHELL ============ */
 const ROUTES={
   dashboard:{t:'Dashboard',ic:'📊',sec:'Visão Geral'},
-  ranking:{t:'Ranking de Vendedores',ic:'🏆'},
   'venda-nova':{t:'Nova Venda',ic:'🛒',sec:'Operação'},
   vendas:{t:'Vendas',ic:'🧾'},
   clientes:{t:'Clientes',ic:'👥'},
@@ -339,7 +330,7 @@ function render(){
   const route=ROUTES[r]?r:'dashboard';
   $('#pagetitle').textContent=ROUTES[route].t;
   document.querySelectorAll('#sidenav a,#bottomnav a').forEach(a=>a.classList.toggle('on',a.dataset.r===route));
-  const V={dashboard:vDash,ranking:vRanking,'venda-nova':vNovaVenda,vendas:vVendas,clientes:vClientes,especies:vEspecies,estoque:vEstoque,comissoes:vComissoes,financeiro:vFinanceiro,despesas:vDespesas,investimentos:vInvestimentos,fluxo:vFluxo,relatorios:vRelatorios,inteligencia:vInteligencia,config:vConfig};
+  const V={dashboard:vDash,'venda-nova':vNovaVenda,vendas:vVendas,clientes:vClientes,especies:vEspecies,estoque:vEstoque,comissoes:vComissoes,financeiro:vFinanceiro,despesas:vDespesas,investimentos:vInvestimentos,fluxo:vFluxo,relatorios:vRelatorios,inteligencia:vInteligencia,config:vConfig};
   $('#view').innerHTML='';
   V[route]();
   window.scrollTo(0,0);
@@ -452,7 +443,6 @@ function vDash(){
         <button class="btn" style="background:#fff;color:var(--primary-strong);font-weight:700" onclick="go('venda-nova')">🛒 Vender agora</button>
         <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35)" onclick="go('especies')">🐟 Meus Peixes</button>
         <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35)" onclick="go('comissoes')">💼 Comissão</button>
-        <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35)" onclick="go('ranking')">🏆 Ranking</button>
       </div>
     </div>
   </div>
@@ -1277,7 +1267,6 @@ function vConfig(){
       <div class="card" style="margin-bottom:14px">
         <b>Empresa</b>
         <div class="fgroup" style="margin-top:12px"><label>Nome da empresa</label><input id="cfN" value="${esc(s.company)}"></div>
-        <div class="fgroup"><label>Seu nome de vendedor (aparece no ranking)</label><input id="cfSN" value="${esc(s.sellerName||'')}" placeholder="ex.: Erick"></div>
         <div class="frow">
           <div class="fgroup"><label>Percentual de comissão (%)</label><input id="cfC" type="number" step="0.5" value="${s.commissionPct}"></div>
           <div class="fgroup"><label>Tema padrão</label><select id="cfT"><option value="light" ${s.theme==='light'?'selected':''}>Claro</option><option value="dark" ${s.theme==='dark'?'selected':''}>Escuro</option></select></div>
@@ -1327,7 +1316,6 @@ function vConfig(){
 }
 function saveConfig(){
   DB.settings.company=$('#cfN').value;
-  DB.settings.sellerName=$('#cfSN').value.trim();
   DB.settings.commissionPct=+$('#cfC').value||15;
   DB.settings.theme=$('#cfT').value;
   document.documentElement.dataset.theme=DB.settings.theme;
@@ -1350,63 +1338,9 @@ function backupImport(inp){
   r.readAsText(f);
 }
 
-/* ============ RANKING DE VENDEDORES ============ */
-let rankMode='mes';
-function vRanking(){
-  $('#view').innerHTML=`
-  <div class="pagehead"><h2>🏆 Ranking de Vendedores</h2><p>Desempenho de todos os vendedores do sistema, direto da nuvem. Cada vendedor registra suas vendas e o ranking atualiza sozinho.</p>
-    <div class="tabs">${[['mes','Este mês'],['ano','Este ano'],['geral','Geral']].map(([k,l])=>`<button class="${rankMode===k?'on':''}" onclick="rankMode='${k}';vRanking()">${l}</button>`).join('')}</div></div>
-  <div id="rankBox"><div class="card empty"><div class="big">⏳</div>Carregando ranking...</div></div>`;
-  loadRanking();
-}
-async function loadRanking(){
-  const box=document.getElementById('rankBox');if(!box)return;
-  if(!sb||!sbUser){box.innerHTML='<div class="card empty"><div class="big">☁️</div>Entre com sua conta (nuvem) para participar do ranking.</div>';return}
-  try{
-    const{data,error}=await sb.from('app_state').select('user_id,data');
-    if(error)throw error;
-    const a=rankMode==='mes'?today().slice(0,8)+'01':rankMode==='ano'?today().slice(0,4)+'-01-01':'0000-01-01';
-    const rows=(data||[]).map(r=>{
-      const d=r.data||{};const szMap={};(d.sizes||[]).forEach(z=>szMap[z.id]=z);
-      let fat=0,cost=0,qty=0,n=0;
-      (d.sales||[]).filter(s=>s.date>=a).forEach(s=>{
-        let sub=0;s.items.forEach(it=>{sub+=it.qty*it.unit;const z=szMap[it.sizeId];cost+=(z?Object.values(z.costs||{}).reduce((x,y)=>x+(+y||0),0):0)*it.qty;qty+=it.qty});
-        fat+=sub-((s.items.reduce((t,it)=>t+(it.disc||0),0))+(+s.discount||0));n++;
-      });
-      return{uid:r.user_id,name:(d.settings&&(d.settings.sellerName||d.settings.company))||'Vendedor',fat,profit:fat-cost,qty,n,me:sbUser&&r.user_id===sbUser.id};
-    }).sort((x,y)=>y.fat-x.fat);
-    if(!rows.length){box.innerHTML='<div class="card empty"><div class="big">🏁</div>Nenhum vendedor ainda. Registre a primeira venda!</div>';return}
-    const max=rows[0].fat||1;
-    const medal=['🥇','🥈','🥉'];
-    const podium=rows.slice(0,3).map((r,i)=>`
-      <div class="card" style="text-align:center;${i===0?'background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border:none':''}">
-        <div style="font-size:34px">${medal[i]}</div>
-        <div style="font-weight:800;font-size:15px;margin-top:4px">${esc(r.name)}${r.me?' <span class="chip c-amber">você</span>':''}</div>
-        <div style="font-size:21px;font-weight:800;margin-top:6px">${fmt(r.fat)}</div>
-        <div style="font-size:11.5px;${i===0?'opacity:.85':'color:var(--text3)'}">${r.n} vendas · ${fnum(r.qty)} peixes · lucro ${fmt(r.profit)}</div>
-      </div>`).join('');
-    box.innerHTML=`
-    <div class="grid g3" style="margin-bottom:14px">${podium}</div>
-    <div class="card" style="padding:0"><div class="tablewrap"><table>
-      <thead><tr><th>#</th><th>Vendedor</th><th class="right">Vendas</th><th class="right hidemob">Peixes</th><th class="right">Faturamento</th><th class="right hidemob">Lucro</th><th style="width:26%" class="hidemob"></th></tr></thead><tbody>
-      ${rows.map((r,i)=>`<tr ${r.me?'style="background:var(--primary-soft)"':''}>
-        <td><b>${i<3?medal[i]:i+1+'º'}</b></td>
-        <td><div style="display:flex;gap:9px;align-items:center"><span class="avatar" style="background:${avatarColor(r.name)}">${esc(r.name[0].toUpperCase())}</span><b>${esc(r.name)}</b>${r.me?'<span class="chip c-amber">você</span>':''}</div></td>
-        <td class="right mono">${r.n}</td><td class="right mono hidemob">${fnum(r.qty)}</td>
-        <td class="right mono"><b>${fmt(r.fat)}</b></td>
-        <td class="right mono hidemob ${r.profit>=0?'pos':'neg'}">${fmt(r.profit)}</td>
-        <td class="hidemob"><div class="progress"><i style="width:${Math.max(2,r.fat/max*100)}%"></i></div></td></tr>`).join('')}
-      </tbody></table></div></div>
-    <p class="muted" style="font-size:12px;margin-top:10px">🔒 O ranking é visível para todos os vendedores logados. Cada vendedor só consegue alterar os próprios dados.</p>`;
-  }catch(e){
-    box.innerHTML='<div class="card empty"><div class="big">⚠️</div>Não foi possível carregar o ranking.<br>Verifique se você rodou o SQL de atualização do ranking no Supabase (veja o guia).</div>';
-  }
-}
-
 /* ============ AUTENTICAÇÃO & NUVEM (SUPABASE) ============ */
 let sb=null,sbUser=null,cloudTimer=null;
-const BUILTIN_SB={url:'https://intkodbnylwswarlzqlf.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImludGtvZGJueWx3c3dhcmx6cWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTYzNzEsImV4cCI6MjA5OTg5MjM3MX0.t6L0XhTajclOClob2TmPvkbLgUa7pNIhS1ueAGebPX4'};
-const sbCfg=()=>{try{return JSON.parse(localStorage.getItem('aquagest_sb')||'null')||BUILTIN_SB}catch(e){return BUILTIN_SB}};
+const sbCfg=()=>{try{return JSON.parse(localStorage.getItem('aquagest_sb')||'null')}catch(e){return null}};
 function authGate(html){const g=$('#authgate');g.classList.add('show');g.innerHTML=`<div class="authcard">${html}</div>`}
 function authDone(){$('#authgate').classList.remove('show');$('#authgate').innerHTML='';if(!window.__appInit){window.__appInit=true;initApp()}else{render()}}
 async function hashPass(pw){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('aquagest|'+pw));return btoa(String.fromCharCode(...new Uint8Array(b)))}catch(e){return btoa(unescape(encodeURIComponent('aq|'+pw)))}}
@@ -1442,29 +1376,16 @@ function saveSbCfg(){
   localStorage.setItem('aquagest_sb',JSON.stringify({url,key}));
   location.reload();
 }
-function showLogin(msg,mode){
-  mode=mode||'in';
-  authGate(`${authHead}
-  <div class="tabs" style="width:100%;display:flex;margin-bottom:16px">
-    <button style="flex:1" class="${mode==='in'?'on':''}" onclick="showLogin('','in')">Entrar</button>
-    <button style="flex:1" class="${mode==='up'?'on':''}" onclick="showLogin('','up')">Criar conta</button>
-  </div>
+function showLogin(msg){
+  authGate(`${authHead}<p>Entre com seu e-mail e senha para acessar seus dados na nuvem.</p>
   ${msg?`<div class="autherr">${esc(msg)}</div>`:''}
-  ${mode==='in'?`
-  <p>Acesse o sistema com seu e-mail e senha.</p>
   <div class="fgroup"><label>E-mail</label><input id="lE" type="email" autocomplete="email"></div>
   <div class="fgroup"><label>Senha</label><input id="lP" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')sbLogin()"></div>
-  <button class="btn btn-p" style="width:100%;padding:13px" onclick="sbLogin()">Entrar</button>`
-  :`
-  <p>Crie sua conta — leva poucos segundos.</p>
-  <div class="fgroup"><label>Seu nome (aparece no ranking)</label><input id="lN" autocomplete="name" placeholder="ex.: Erick"></div>
-  <div class="fgroup"><label>E-mail</label><input id="lE" type="email" autocomplete="email"></div>
-  <div class="fgroup"><label>Senha (mínimo 6 caracteres)</label><input id="lP" type="password" autocomplete="new-password"></div>
-  <div class="fgroup"><label>Repita a senha</label><input id="lP2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')sbSignup()"></div>
-  <button class="btn btn-p" style="width:100%;padding:13px" onclick="sbSignup()">Criar minha conta</button>`}
+  <button class="btn btn-p" style="width:100%;padding:13px" onclick="sbLogin()">Entrar</button>
+  <button class="btn btn-o" style="width:100%;margin-top:8px" onclick="sbSignup()">Criar conta nova</button>
   <div style="display:flex;justify-content:space-between;margin-top:14px">
-    <a href="#" style="font-size:12px" onclick="showSbSetup();return false">Config. avançada</a>
-    <a href="#" style="font-size:12px" onclick="authDone();toast('Modo offline — dados apenas neste dispositivo','📱');return false">Entrar sem internet</a>
+    <a href="#" style="font-size:12px" onclick="showSbSetup();return false">Configurar Supabase</a>
+    <a href="#" style="font-size:12px" onclick="authDone();toast('Você entrou sem nuvem — dados apenas neste dispositivo','📱');return false">Entrar sem nuvem</a>
   </div>`);
 }
 async function sbLogin(){
@@ -1478,17 +1399,14 @@ async function sbLogin(){
 }
 async function sbSignup(){
   const email=$('#lE').value.trim(),password=$('#lP').value;
-  const p2=document.getElementById('lP2');
   if(!email||!password)return toast('Preencha e-mail e senha para criar a conta','⚠️');
   if(password.length<6)return toast('A senha precisa de pelo menos 6 caracteres','⚠️');
-  if(p2&&p2.value!==password)return toast('As senhas não conferem','⚠️');
-  const nm=document.getElementById('lN');if(nm&&nm.value.trim())localStorage.setItem('aquagest_pendingname',nm.value.trim());
   try{
     const{data,error}=await sb.auth.signUp({email,password});
-    if(error)return showLogin(error.message.includes('already registered')?'Este e-mail já tem conta — use a aba Entrar.':error.message,'up');
+    if(error)return showLogin(error.message);
     if(data.session){sbUser=data.user;await cloudLoad();authDone();toast('Conta criada com sucesso!','🎉')}
-    else showLogin('Conta criada! Confirme pelo link enviado ao seu e-mail e depois entre. (Dica: desativando o "Confirm email" no Supabase, a entrada é imediata.)','in');
-  }catch(e){showLogin('Falha de conexão com o Supabase.','up')}
+    else showLogin('Conta criada! Confirme pelo link enviado ao seu e-mail e entre novamente. (Dica: no Supabase dá para desativar a confirmação de e-mail.)');
+  }catch(e){showLogin('Falha de conexão com o Supabase.')}
 }
 function showLocalLogin(msg){
   authGate(`${authHead}<p>Digite sua senha para entrar.</p>
@@ -1507,8 +1425,6 @@ async function cloudLoad(){
     const{data}=await sb.from('app_state').select('data').eq('user_id',sbUser.id).maybeSingle();
     if(data&&data.data){DB=data.data;localStorage.setItem(KEY,JSON.stringify(DB))}
     else{await sb.from('app_state').upsert({user_id:sbUser.id,data:DB})}
-    const pn=localStorage.getItem('aquagest_pendingname');
-    if(pn){DB.settings.sellerName=pn;localStorage.removeItem('aquagest_pendingname');saveDB()}
   }catch(e){toast('Não foi possível carregar da nuvem — usando dados locais','⚠️')}
 }
 function cloudSave(){
@@ -1528,17 +1444,6 @@ async function doLogout(){
 loadDB();
 document.documentElement.setAttribute('data-theme',DB.settings.theme||'light');
 initAuth();
-/* PWA: service worker com atualização automática */
-if('serviceWorker' in navigator&&location.protocol==='https:'){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
-    let refreshed=false;
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      if(refreshed)return;refreshed=true;
-      toast('Sistema atualizado para a versão mais nova','🔄');
-    });
-  });
-}
 </script>
 </body>
 </html>

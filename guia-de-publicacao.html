@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guia de Publicação — AquaGest</title><style>
+body{font-family:system-ui,sans-serif;max-width:760px;margin:0 auto;padding:30px 20px;color:#1a2233;line-height:1.6;background:#f7f8fa}
+h1{font-size:26px}h2{font-size:19px;margin-top:36px;padding-top:14px;border-top:2px solid #e3e7ee}
+.step{background:#fff;border:1px solid #e3e7ee;border-radius:12px;padding:16px 20px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.step b.n{display:inline-block;background:#0E7490;color:#fff;border-radius:50%;width:26px;height:26px;text-align:center;line-height:26px;margin-right:8px}
+code,pre{background:#0b1220;color:#d7e3f4;border-radius:8px;font-size:13px}
+code{padding:2px 7px}pre{padding:14px 16px;overflow-x:auto;white-space:pre-wrap}
+.dica{background:#e0f2f7;border-left:4px solid #0E7490;border-radius:8px;padding:12px 16px;margin:14px 0}
+.atencao{background:#fef3e2;border-left:4px solid #d97706;border-radius:8px;padding:12px 16px;margin:14px 0}
+</style></head><body>
+<h1>🐟 AquaGest — Guia de Publicação Gratuita</h1>
+<p>Este guia coloca seu sistema no ar de graça usando <b>GitHub Pages</b> (hospedagem do site) e <b>Supabase</b> (banco de dados + login). Leva uns 15 minutos, sem programar nada.</p>
+
+<h2>Parte 1 — Publicar o site no GitHub Pages</h2>
+<div class="step"><b class="n">1</b>Crie uma conta gratuita em <b>github.com</b> (se ainda não tiver).</div>
+<div class="step"><b class="n">2</b>Clique no <b>+</b> (canto superior direito) → <b>New repository</b>. Nome sugerido: <code>aquagest</code>. Marque <b>Public</b> e clique em <b>Create repository</b>.</div>
+<div class="step"><b class="n">3</b>Na página do repositório, clique em <b>uploading an existing file</b> (ou Add file → Upload files) e envie o arquivo <code>index.html</code> que recebeu junto com este guia. Clique em <b>Commit changes</b>.</div>
+<div class="step"><b class="n">4</b>Vá em <b>Settings → Pages</b> (menu lateral). Em "Branch", escolha <code>main</code> e pasta <code>/ (root)</code>, depois <b>Save</b>.</div>
+<div class="step"><b class="n">5</b>Aguarde 1–2 minutos. Seu sistema estará no ar em:<br><code>https://SEU-USUARIO.github.io/aquagest/</code></div>
+<div class="dica">📱 <b>No celular:</b> abra esse endereço no navegador e use "Adicionar à tela inicial" — vira um ícone como um aplicativo.</div>
+
+<h2>Parte 2 — Criar o banco de dados no Supabase</h2>
+<div class="step"><b class="n">1</b>Crie uma conta gratuita em <b>supabase.com</b> e clique em <b>New project</b>. Dê um nome (ex.: aquagest), crie uma senha de banco qualquer (guarde-a) e escolha a região <b>South America (São Paulo)</b>.</div>
+<div class="step"><b class="n">2</b>Quando o projeto abrir, vá em <b>SQL Editor</b> (menu lateral), cole o código abaixo e clique em <b>Run</b>:
+<pre>create table if not exists public.app_state (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz default now()
+);
+
+alter table public.app_state enable row level security;
+
+create policy "usuario_acessa_so_seus_dados"
+  on public.app_state
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);</pre>
+Deve aparecer "Success". Isso cria a tabela onde seus dados ficam guardados, protegida para que <b>só você</b> acesse os seus.</div>
+<div class="step"><b class="n">3</b>Vá em <b>Authentication → Sign In / Providers → Email</b> e <b>desative</b> a opção <b>"Confirm email"</b>. Assim você cria sua conta e entra na hora, sem precisar confirmar e-mail.</div>
+<div class="step"><b class="n">4</b>Vá em <b>Project Settings → API</b> (ou "Data API") e copie dois valores:<br>• <b>Project URL</b> (algo como <code>https://abcd1234.supabase.co</code>)<br>• <b>anon public key</b> (um código longo começando com <code>eyJ...</code>)</div>
+
+<h2>Parte 3 — Conectar o sistema à nuvem</h2>
+<div class="step"><b class="n">1</b>Abra seu sistema (o endereço do GitHub Pages). Na tela inicial, toque em <b>☁️ Conectar à nuvem (Supabase)</b>.</div>
+<div class="step"><b class="n">2</b>Cole a <b>Project URL</b> e a <b>chave anon</b> e salve.</div>
+<div class="step"><b class="n">3</b>Na tela de login, digite seu e-mail e uma senha (mínimo 6 caracteres) e toque em <b>Criar conta nova</b>. Pronto — você está logado e tudo o que registrar sincroniza automaticamente.</div>
+<div class="step"><b class="n">4</b>Para usar em outro aparelho: abra o mesmo endereço, conecte o mesmo Supabase (mesma URL e chave) e entre com o mesmo e-mail e senha. Seus dados aparecem lá.</div>
+
+<div class="atencao">⚠️ <b>Importante:</b> a chave "anon" é pública e segura de usar no site (a proteção real é o login + a regra criada no Passo 2). Nunca use a chave <b>service_role</b> no site. E exporte um backup de vez em quando em <b>Configurações → Exportar backup</b>.</div>
+
+<h2>Problemas comuns</h2>
+<div class="step"><b>“Falha de conexão com o Supabase”</b> — confira se copiou a URL completa (com https://) e a chave anon inteira.</div>
+<div class="step"><b>“Confirme pelo link enviado ao seu e-mail”</b> — você esqueceu de desativar o "Confirm email" (Parte 2, passo 3). Desative e entre de novo, ou clique no link do e-mail recebido.</div>
+<div class="step"><b>Site não abre após ativar o Pages</b> — aguarde 2 minutos e confira se o arquivo se chama exatamente <code>index.html</code>.</div>
+</body></html>
