@@ -158,6 +158,39 @@ tbody tr:last-child td{border-bottom:none}
 }
 @media(min-width:901px){.tablewrap{overflow-x:auto}}
 
+/* ===== Aprimoramentos mobile (zero efeito no desktop) ===== */
+.mobsearch{display:none}
+.mobfinish{display:none;position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:35;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);padding:10px 14px;align-items:center;gap:12px}
+@keyframes sheetup{from{transform:translateY(60px);opacity:.4}to{transform:none;opacity:1}}
+@media(max-width:900px){
+  html{-webkit-tap-highlight-color:transparent}
+  input,select,textarea{font-size:16px;min-height:48px}
+  .btn{min-height:46px;font-size:14.5px}
+  .btn-sm{min-height:38px;font-size:13px}
+  .iconbtn{width:42px;height:42px}
+  .topbar{padding-top:calc(10px + env(safe-area-inset-top));gap:9px}
+  .topbar h1{font-size:17px;font-weight:800}
+  .searchbox{display:none;width:100%}
+  .searchbox.show{display:block}
+  .mobsearch{display:grid}
+  .pagehead h2{font-size:21px}
+  .pagehead>.btn{flex:1 1 auto;justify-content:center}
+  .pagehead>input{flex:1 1 100%;max-width:none!important}
+  .chartbox{height:205px!important}
+  .tabs{width:100%;-webkit-overflow-scrolling:touch}
+  .tabs button{padding:10px 14px;flex:1 1 auto}
+  .card{padding:15px;border-radius:16px}
+  .kpi .vl{font-size:20px}
+  .overlay{align-items:flex-end;padding:0}
+  .modal{max-width:100%;border-radius:22px 22px 0 0;max-height:93dvh;animation:sheetup .28s cubic-bezier(.2,.9,.3,1)}
+  .modal .mf{padding-bottom:calc(14px + env(safe-area-inset-bottom));flex-wrap:wrap}
+  .modal .mf .btn{flex:1;justify-content:center}
+  th,td{padding:10px 9px}
+  .btn:active,.iconbtn:active,.bottomnav a:active{transform:scale(.96)}
+  .content{padding-bottom:160px}
+  .mobfinish{display:flex}
+}
+
 /* auth */
 #authgate{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:18px;background:radial-gradient(1100px 700px at 15% 0%,#0E7490 0%,#0B1220 60%)}
 #authgate.show{display:flex}
@@ -179,6 +212,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="main">
     <header class="topbar">
       <h1 id="pagetitle">Dashboard</h1>
+      <button class="iconbtn mobsearch" id="msbtn" title="Buscar">🔍</button>
       <div class="searchbox">
         <span class="ic">🔍</span>
         <input id="gs" placeholder="Buscar cliente, espécie, venda, cidade..." autocomplete="off">
@@ -311,6 +345,8 @@ function initApp(){
   const setIcon=()=>tb.textContent=document.documentElement.dataset.theme==='dark'?'☀️':'🌙';
   setIcon();
   tb.onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;DB.settings.theme=t;saveDB();setIcon();render()};
+  // busca no mobile: alterna a barra
+  $('#msbtn').onclick=()=>{const sbx=document.querySelector('.searchbox');sbx.classList.toggle('show');if(sbx.classList.contains('show'))$('#gs').focus()};
   // global search
   const gs=$('#gs'),gsr=$('#gsr');
   gs.oninput=()=>{
@@ -721,6 +757,10 @@ function vNovaVenda(){
       <button class="btn btn-p" style="width:100%;margin-top:16px;padding:14px;font-size:15px" onclick="finishSale()">✓ Finalizar venda</button>
     </div>
   </div>
+  <div class="mobfinish">
+    <div style="flex:1;min-width:0"><div class="muted" style="font-size:10.5px;font-weight:700">TOTAL DA VENDA</div><b id="mobTot" style="font-size:19px" class="mono">R$ 0,00</b></div>
+    <button class="btn btn-p" style="flex:1.1" onclick="finishSale()">✓ Finalizar</button>
+  </div>
   <style>@media(max-width:900px){#saleGrid{grid-template-columns:1fr}}</style>`;
   renderItems();renderPays();
 }
@@ -801,6 +841,7 @@ function updPayHint(){
 function updSummary(){
   const{c}=draftCalc();const ct=commissionTotals();
   const row=(l,v,cls='')=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span class="muted">${l}</span><b class="${cls} mono">${v}</b></div>`;
+  const mt=document.getElementById('mobTot');if(mt)mt.textContent=fmt(c.total);
   const el=document.getElementById('saleSummary');if(!el)return;
   el.innerHTML=
     row('Subtotal',fmt(c.sub))+row('Desconto','− '+fmt(c.disc))+
