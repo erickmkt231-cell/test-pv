@@ -159,7 +159,7 @@ tbody tr:last-child td{border-bottom:none}
 @media(min-width:901px){.tablewrap{overflow-x:auto}}
 
 /* ===== Aprimoramentos mobile (zero efeito no desktop) ===== */
-.mobsearch{display:none}
+.mobsearch,.mobmenu{display:none}
 .mobfinish{display:none;position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:35;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);padding:10px 14px;align-items:center;gap:12px}
 @keyframes sheetup{from{transform:translateY(60px);opacity:.4}to{transform:none;opacity:1}}
 @media(max-width:900px){
@@ -172,7 +172,7 @@ tbody tr:last-child td{border-bottom:none}
   .topbar h1{font-size:17px;font-weight:800}
   .searchbox{display:none;width:100%}
   .searchbox.show{display:block}
-  .mobsearch{display:grid}
+  .mobsearch,.mobmenu{display:grid}
   .pagehead h2{font-size:21px}
   .pagehead>.btn{flex:1 1 auto;justify-content:center}
   .pagehead>input{flex:1 1 100%;max-width:none!important}
@@ -212,6 +212,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="main">
     <header class="topbar">
       <h1 id="pagetitle">Dashboard</h1>
+      <button class="iconbtn mobmenu" id="mmbtn" title="Menu">☰</button>
       <button class="iconbtn mobsearch" id="msbtn" title="Buscar">🔍</button>
       <div class="searchbox">
         <span class="ic">🔍</span>
@@ -347,6 +348,7 @@ function initApp(){
   tb.onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;DB.settings.theme=t;saveDB();setIcon();render()};
   // busca no mobile: alterna a barra
   $('#msbtn').onclick=()=>{const sbx=document.querySelector('.searchbox');sbx.classList.toggle('show');if(sbx.classList.contains('show'))$('#gs').focus()};
+  $('#mmbtn').onclick=mobileMenu;
   // global search
   const gs=$('#gs'),gsr=$('#gsr');
   gs.oninput=()=>{
@@ -363,6 +365,16 @@ function initApp(){
   document.addEventListener('click',e=>{if(!e.target.closest('.searchbox'))gsr.style.display='none'});
   window.addEventListener('hashchange',render);
   render();
+}
+function mobileMenu(){
+  modal(`<div class="mh"><h3>Menu completo</h3><button class="iconbtn" onclick="closeModal()">✕</button></div>
+  <div class="mb"><div class="grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+  ${Object.entries(ROUTES).map(([k,v])=>`
+    <button class="card" style="text-align:center;padding:14px 6px;cursor:pointer" onclick="closeModal();go('${k}')">
+      <div style="font-size:26px">${v.ic}</div>
+      <div style="font-size:11.5px;font-weight:700;margin-top:6px;line-height:1.25">${v.t}</div>
+    </button>`).join('')}
+  </div></div>`);
 }
 function mkChart(id,cfg){const el=document.getElementById(id);if(!el)return;const isDark=document.documentElement.dataset.theme==='dark';
   Chart.defaults.color=isDark?'#9AA7BC':'#5B6472';Chart.defaults.borderColor=isDark?'#22304B':'#E6E8EE';
@@ -599,7 +611,7 @@ function formTamanho(spId,szId){
       <div class="fgroup"><label>Preço de venda por peixe (R$) *</label><input id="tP" type="number" step="0.01" inputmode="decimal" value="${sz.price}" oninput="updTamCalc()"></div>
     </div>
     <div class="frow">
-      <div class="fgroup"><label>Quantidade em estoque</label><input id="tS" type="number" inputmode="numeric" value="${sz.stock}"></div>
+      <div class="fgroup"><label>Quantidade em estoque</label><input id="tS" type="number" inputmode="numeric" value="${sz.stock}" oninput="updTamCalc();updDetHint()"></div>
       <div class="fgroup"><label>Avisar quando estoque abaixo de</label><input id="tM" type="number" inputmode="numeric" value="${sz.min}"></div>
     </div>
     <label style="margin:8px 0 6px">Custo por peixe</label>
@@ -612,9 +624,11 @@ function formTamanho(spId,szId){
       <p class="muted" style="font-size:12px;margin-top:-6px">Some tudo o que gasta por peixe (compra, ração, frete...) e coloque aqui. Se quiser separar por categoria, use a aba Detalhado.</p>
     </div>
     <div id="costDetail" style="display:${tamMode==='detalhado'?'block':'none'}">
+      <p class="muted" style="font-size:12px;margin-bottom:8px">Coloque o <b>valor TOTAL gasto</b> em cada categoria (ex.: toda a ração desse lote). O sistema divide automaticamente pela quantidade em estoque para achar o custo por peixe.</p>
       <div class="grid g3" style="gap:8px">
-      ${COSTKEYS.map(([k,l])=>`<div><label style="font-size:10.5px">${l}</label><input id="tc_${k}" type="number" step="0.001" inputmode="decimal" value="${sz.costs[k]||0}" oninput="updTamCalc()" style="padding:7px 9px;font-size:13px"></div>`).join('')}
+      ${COSTKEYS.map(([k,l])=>`<div><label style="font-size:10.5px">${l} (total R$)</label><input id="tc_${k}" type="number" step="0.01" inputmode="decimal" value="${sz.stock>0?Math.round((sz.costs[k]||0)*sz.stock*100)/100:(sz.costs[k]||0)}" oninput="updTamCalc();updDetHint()" style="padding:7px 9px;font-size:13px"></div>`).join('')}
       </div>
+      <div id="detHint" class="muted" style="font-size:12px;margin-top:8px"></div>
     </div>
     <div class="card" style="margin-top:14px;background:var(--surface2);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div><div class="muted" style="font-size:11px;font-weight:600">CUSTO TOTAL</div><b id="tcTot">—</b></div>
@@ -624,18 +638,31 @@ function formTamanho(spId,szId){
     </div>
   </div>
   <div class="mf">${szId?`<button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir tamanho?')){DB.sizes=DB.sizes.filter(s=>s.id!=='${szId}');saveDB();closeModal();vEspecies()}">Excluir</button>`:''}<button class="btn btn-o" onclick="closeModal()">Cancelar</button><button class="btn btn-p" onclick="saveTamanho('${spId}','${szId||''}')">Salvar</button></div>`,true);
-  updTamCalc();
+  updTamCalc();updDetHint();
 }
 function swapTamMode(){
   $('#tabSim').classList.toggle('on',tamMode==='simples');
   $('#tabDet').classList.toggle('on',tamMode==='detalhado');
   $('#costSimple').style.display=tamMode==='simples'?'block':'none';
   $('#costDetail').style.display=tamMode==='detalhado'?'block':'none';
-  if(tamMode==='simples'){const det=sum(COSTKEYS,([k])=>+document.getElementById('tc_'+k).value||0);if(det)$('#tcSimple').value=det}
-  updTamCalc();
+  if(tamMode==='simples'){const det=curTamCostDetToSimple();if(det)$('#tcSimple').value=Math.round(det*1000)/1000}
+  updDetHint();updTamCalc();
+}
+function curTamCostDetToSimple(){
+  const totalGasto=sum(COSTKEYS,([k])=>+document.getElementById('tc_'+k).value||0);
+  return totalGasto/Math.max(1,+$('#tS').value||1);
 }
 function curTamCost(){
-  return tamMode==='simples'?(+$('#tcSimple').value||0):sum(COSTKEYS,([k])=>+document.getElementById('tc_'+k).value||0);
+  if(tamMode==='simples')return +$('#tcSimple').value||0;
+  const totalGasto=sum(COSTKEYS,([k])=>+document.getElementById('tc_'+k).value||0);
+  const stk=Math.max(1,+$('#tS').value||1);
+  return totalGasto/stk;
+}
+function updDetHint(){
+  const el=document.getElementById('detHint');if(!el)return;
+  const totalGasto=sum(COSTKEYS,([k])=>+document.getElementById('tc_'+k).value||0);
+  const stk=Math.max(1,+$('#tS').value||1);
+  el.innerHTML=totalGasto?`Gasto total: <b>${fmt(totalGasto)}</b> ÷ <b>${fnum(stk)}</b> peixes em estoque = <b>${fmt(totalGasto/stk)}</b> por peixe`:'';
 }
 function updTamCalc(){
   const p=+$('#tP').value||0;const cost=curTamCost();
@@ -650,7 +677,7 @@ function saveTamanho(spId,szId){
   if(!cm||!price)return toast('Informe o tamanho e o preço','⚠️');
   let costs={};
   if(tamMode==='simples'){costs={compra:+$('#tcSimple').value||0}}
-  else{COSTKEYS.forEach(([k])=>costs[k]=+document.getElementById('tc_'+k).value||0)}
+  else{const stk=Math.max(1,+$('#tS').value||1);COSTKEYS.forEach(([k])=>costs[k]=(+document.getElementById('tc_'+k).value||0)/stk)}
   const data={cm,price,costs,stock:+$('#tS').value||0,min:+$('#tM').value||0};
   if(szId){Object.assign(sizeById(szId),data)}else{DB.sizes.push({id:uid(),speciesId:spId,...data})}
   saveDB();closeModal();toast('Tamanho salvo');vEspecies();
