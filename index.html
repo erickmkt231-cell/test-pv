@@ -263,7 +263,7 @@ function speciesById(id){return DB.species.find(s=>s.id===id)}
 function custById(id){return DB.customers.find(c=>c.id===id)}
 function sizeLabel(sz){if(!sz)return 'Item removido';const sp=speciesById(sz.speciesId);return `${sp?sp.name:'?'} ${sz.cm} cm`}
 function calcItem(it){
-  const sz=sizeById(it.sizeId);const cost=sz?sizeCost(sz):0;
+  const sz=sizeById(it.sizeId);const cost=(it.cost!=null)?it.cost:(sz?sizeCost(sz):0);
   const gross=it.qty*it.unit-(it.disc||0);
   const totalCost=cost*it.qty;
   const profit=gross-totalCost; // lucro líquido do item (receita - custo total do peixe)
@@ -272,7 +272,7 @@ function calcItem(it){
 }
 function calcSale(s){
   let sub=0,cost=0,qty=0;
-  s.items.forEach(it=>{const sz=sizeById(it.sizeId);sub+=it.qty*it.unit;cost+=(sz?sizeCost(sz):0)*it.qty;qty+=it.qty});
+  s.items.forEach(it=>{const sz=sizeById(it.sizeId);sub+=it.qty*it.unit;cost+=((it.cost!=null)?it.cost:(sz?sizeCost(sz):0))*it.qty;qty+=it.qty});
   const disc=sum(s.items,it=>it.disc||0)+(+s.discount||0);
   const total=sub-disc;
   const netProfit=total-cost;
@@ -539,7 +539,9 @@ function saveCliente(id){
   if(id){Object.assign(custById(id),data)}else{DB.customers.push({id:uid(),created:today(),...data})}
   saveDB();closeModal();toast('Cliente salvo');vClientes();
 }
-function delCliente(id){if(!confirm('Excluir este cliente?'))return;DB.customers=DB.customers.filter(c=>c.id!==id);saveDB();closeModal();toast('Cliente excluído','🗑️');vClientes()}
+function delCliente(id){if(!confirm('Excluir este cliente?'))return;catDelete(id);DB.customers=DB.customers.filter(c=>c.id!==id);saveDB();closeModal();toast('Cliente excluído','🗑️');vClientes()}
+function removeSpecies(id){DB.sizes.filter(s=>s.speciesId===id).forEach(s=>catDelete(s.id));DB.sizes=DB.sizes.filter(s=>s.speciesId!==id);catDelete(id);DB.species=DB.species.filter(s=>s.id!==id);saveDB();closeModal();toast('Espécie excluída','🗑️');vEspecies()}
+function removeSize(id){catDelete(id);DB.sizes=DB.sizes.filter(s=>s.id!==id);saveDB();closeModal();toast('Tamanho excluído','🗑️');vEspecies()}
 function histCliente(id){
   const c=custById(id);const ss=DB.sales.filter(s=>s.customerId===id).sort((a,b)=>b.date.localeCompare(a.date));
   const tot=sum(ss,s=>calcSale(s).total);
@@ -590,7 +592,7 @@ function formEspecie(id){
     <div class="fgroup"><label>Status</label><select id="eS"><option ${sp.status==='ativo'?'selected':''}>ativo</option><option ${sp.status==='inativo'?'selected':''}>inativo</option></select></div>
     <div class="fgroup"><label>Observações</label><textarea id="eO" rows="2">${esc(sp.obs)}</textarea></div>
   </div>
-  <div class="mf">${id?`<button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir espécie e seus tamanhos?')){DB.sizes=DB.sizes.filter(s=>s.speciesId!=='${id}');DB.species=DB.species.filter(s=>s.id!=='${id}');saveDB();closeModal();vEspecies()}">Excluir</button>`:''}<button class="btn btn-o" onclick="closeModal()">Cancelar</button><button class="btn btn-p" onclick="saveEspecie('${id||''}')">Salvar</button></div>`);
+  <div class="mf">${id?`<button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir espécie e seus tamanhos?')){removeSpecies('${id}')}">Excluir</button>`:''}<button class="btn btn-o" onclick="closeModal()">Cancelar</button><button class="btn btn-p" onclick="saveEspecie('${id||''}')">Salvar</button></div>`);
 }
 function saveEspecie(id){
   const name=$('#eN').value.trim();if(!name)return toast('Informe o nome','⚠️');
@@ -637,7 +639,7 @@ function formTamanho(spId,szId){
       <div><div class="muted" style="font-size:11px;font-weight:600">SUA COMISSÃO/PEIXE</div><b id="tcCo">—</b></div>
     </div>
   </div>
-  <div class="mf">${szId?`<button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir tamanho?')){DB.sizes=DB.sizes.filter(s=>s.id!=='${szId}');saveDB();closeModal();vEspecies()}">Excluir</button>`:''}<button class="btn btn-o" onclick="closeModal()">Cancelar</button><button class="btn btn-p" onclick="saveTamanho('${spId}','${szId||''}')">Salvar</button></div>`,true);
+  <div class="mf">${szId?`<button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir tamanho?')){removeSize('${szId}')}">Excluir</button>`:''}<button class="btn btn-o" onclick="closeModal()">Cancelar</button><button class="btn btn-p" onclick="saveTamanho('${spId}','${szId||''}')">Salvar</button></div>`,true);
   updTamCalc();updDetHint();
 }
 function swapTamMode(){
@@ -835,7 +837,7 @@ function updSale(i){
   updSummary();updPayHint();
 }
 function draftCalc(){
-  const items=saleDraft.items.filter(it=>it.sizeId&&+it.qty).map(it=>({sizeId:it.sizeId,qty:+it.qty,unit:+it.unit||0,obs:it.obs}));
+  const items=saleDraft.items.filter(it=>it.sizeId&&+it.qty).map(it=>{const sz=sizeById(it.sizeId);return{sizeId:it.sizeId,qty:+it.qty,unit:+it.unit||0,obs:it.obs,cost:sz?sizeCost(sz):0}});
   return{items,c:calcSale({items,discount:+saleDraft.discount||0})};
 }
 function renderPays(){
@@ -963,7 +965,7 @@ function viewSale(id){
       <div class="card kpi"><div class="lb">Lucro líquido</div><div class="vl ${c.netProfit>=0?'pos':'neg'}">${fmt(c.netProfit)}</div><div class="sub">margem ${fpct(c.marginN)}</div></div>
       <div class="card kpi"><div class="lb">💼 Comissão</div><div class="vl pos">${fmt(c.commission)}</div></div>
     </div></div>
-  <div class="mf"><button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir esta venda? Estoque e comissão serão recalculados.')){DB.sales=DB.sales.filter(x=>x.id!=='${id}');saveDB();closeModal();toast('Venda excluída','🗑️');render()}">Excluir</button><button class="btn btn-p" onclick="closeModal()">Fechar</button></div>`,true);
+  <div class="mf"><button class="btn btn-d btn-sm" style="margin-right:auto" onclick="if(confirm('Excluir esta venda? Estoque e comissão serão recalculados.')){deleteSale('${id}');closeModal();toast('Venda excluída','🗑️');render()}">Excluir</button><button class="btn btn-p" onclick="closeModal()">Fechar</button></div>`,true);
 }
 /* ============ CARTEIRA DE COMISSÃO ============ */
 function vComissoes(){
@@ -1398,7 +1400,7 @@ async function loadRanking(){
       let fat=0,cost=0,qty=0,n=0,comm=0;
       sales.forEach(s=>{
         let sub=0,cst=0,q=0;
-        s.items.forEach(it=>{sub+=it.qty*it.unit;const z=szMap[it.sizeId];cst+=(z?Object.values(z.costs||{}).reduce((x,y)=>x+(+y||0),0):0)*it.qty;q+=it.qty});
+        s.items.forEach(it=>{sub+=it.qty*it.unit;const z=szMap[it.sizeId];cst+=((it.cost!=null)?it.cost:(z?Object.values(z.costs||{}).reduce((x,y)=>x+(+y||0),0):0))*it.qty;q+=it.qty});
         const tot=sub-((s.items.reduce((t,it)=>t+(it.disc||0),0))+(+s.discount||0));
         const profit=tot-cst;
         fat+=tot;cost+=cst;qty+=q;n++;if(profit>0)comm+=profit*pct;
@@ -1560,62 +1562,96 @@ async function localLogin(){
   if(h===localStorage.getItem('aquagest_pass')){authDone()}
   else showLocalLogin('Senha incorreta.');
 }
-/* Divisão dos dados: catálogo compartilhado (todos) × dados do vendedor */
+/* ====== Sincronização robusta: catálogo compartilhado × dados do vendedor ======
+   Regras de ouro:
+   - Dados NUNCA são apagados automaticamente. Só somem se o usuário excluir de propósito.
+   - Cada vendedor tem sua própria linha (vendas/saques): salvar não interfere nos outros.
+   - O catálogo (peixes, preços, estoque, clientes) só é gravado quando REALMENTE muda e
+     nunca é sobrescrito por uma versão vazia — protege contra perda acidental.
+   - Ao carregar, os dados locais e da nuvem são UNIDOS (nada se perde). Exclusões usam
+     "tombstones" para não ressuscitar o que foi apagado de propósito. */
 const SHARED_ARRS=['species','sizes','customers','expenses','investments','payables','receivables','stockMoves'];
-function splitDB(){
-  const shared={settings:{company:DB.settings.company,commissionPct:DB.settings.commissionPct,currency:DB.settings.currency||'BRL'}};
-  SHARED_ARRS.forEach(k=>shared[k]=DB[k]||[]);
-  const personal={sales:DB.sales||[],withdrawals:DB.withdrawals||[],settings:{sellerName:DB.settings.sellerName||'',theme:DB.settings.theme||'light'}};
-  return{shared,personal};
+let lastCatalogSig=null, catalogLoaded=false;
+function mergeById(a,b){ // união por id; itens de "b" vencem em caso de mesmo id
+  const m=new Map();
+  (a||[]).forEach(x=>{if(x&&x.id)m.set(x.id,x)});
+  (b||[]).forEach(x=>{if(x&&x.id)m.set(x.id,x)});
+  return [...m.values()];
 }
-function mergeDB(shared,personal){
-  const base=seed();const d={...base};
-  if(shared){SHARED_ARRS.forEach(k=>d[k]=shared[k]||[])}
-  d.sales=(personal&&personal.sales)||[];
-  d.withdrawals=(personal&&personal.withdrawals)||[];
-  d.settings={...base.settings,
-    ...(shared&&shared.settings?shared.settings:{}),
-    sellerName:(personal&&personal.settings&&personal.settings.sellerName)||'',
-    theme:(personal&&personal.settings&&personal.settings.theme)||'light'};
-  return d;
+function catDelete(id){DB._catDeleted=DB._catDeleted||[];if(id&&!DB._catDeleted.includes(id))DB._catDeleted.push(id)}
+function deleteSale(id){DB.deletedSales=DB.deletedSales||[];if(!DB.deletedSales.includes(id))DB.deletedSales.push(id);DB.sales=DB.sales.filter(s=>s.id!==id);saveDB()}
+function catalogPayload(){
+  const c={_deleted:DB._catDeleted||[],settings:{company:DB.settings.company,commissionPct:DB.settings.commissionPct,currency:DB.settings.currency||'BRL'}};
+  SHARED_ARRS.forEach(k=>c[k]=DB[k]||[]);
+  return c;
+}
+function personalPayload(){
+  return {sales:DB.sales||[],withdrawals:DB.withdrawals||[],deletedSales:DB.deletedSales||[],
+    settings:{sellerName:DB.settings.sellerName||'',theme:DB.settings.theme||'light'}};
+}
+function catalogSig(){
+  const c=catalogPayload();
+  return JSON.stringify([c.species,c.sizes,c.customers,c.expenses,c.investments,c.payables,c.receivables,c.stockMoves,c.settings,c._deleted]);
 }
 async function cloudLoad(){
   try{
-    const[cat,mine,all]=await Promise.all([
+    const [cat,mine,all]=await Promise.all([
       sb.from('catalog').select('data').eq('id',1).maybeSingle(),
       sb.from('app_state').select('data').eq('user_id',sbUser.id).maybeSingle(),
       sb.from('app_state').select('user_id,data')
     ]);
     const shared=cat.data&&cat.data.data;
     const personal=mine.data&&mine.data.data;
-    DB=mergeDB(shared,personal&&personal.sales?personal:personal);
-    // remove vendas órfãs (de peixes que foram apagados do catálogo) para nunca quebrar as telas
-    const validSz=new Set(DB.sizes.map(z=>z.id));
-    DB.sales=(DB.sales||[]).filter(s=>s.items&&s.items.every(it=>validSz.has(it.sizeId)));
+    const base=seed();const d={...base};
+    // catálogo: união (remoto vence em conflito), respeitando exclusões — nunca some sozinho
+    const catDel=new Set([...(shared&&shared._deleted||[]),...(DB._catDeleted||[])]);
+    SHARED_ARRS.forEach(k=>{ d[k]=mergeById(DB[k],shared&&shared[k]).filter(x=>x&&!catDel.has(x.id)); });
+    d._catDeleted=[...catDel];
+    d.settings={...base.settings,...(shared&&shared.settings||{}),
+      sellerName:(personal&&personal.settings&&personal.settings.sellerName)||DB.settings.sellerName||'',
+      theme:(personal&&personal.settings&&personal.settings.theme)||DB.settings.theme||'light'};
+    // vendas do vendedor: união local+nuvem, tirando só as excluídas de propósito
+    const delS=new Set([...(personal&&personal.deletedSales||[]),...(DB.deletedSales||[])]);
+    d.sales=mergeById(DB.sales,personal&&personal.sales).filter(s=>s&&!delS.has(s.id));
+    d.withdrawals=mergeById(DB.withdrawals,personal&&personal.withdrawals);
+    d.deletedSales=[...delS];
+    DB=d;
     const pn=localStorage.getItem('aquagest_pendingname');
     if(pn){DB.settings.sellerName=pn;localStorage.removeItem('aquagest_pendingname')}
     localStorage.setItem(KEY,JSON.stringify(DB));
-    // vendas dos outros vendedores (para estoque global e visão do CEO)
     window.othersSales=(all.data||[]).filter(r=>r.user_id!==sbUser.id).flatMap(r=>((r.data||{}).sales)||[]);
     window.teamRows=all.data||[];
-    // se o catálogo ainda não existe na nuvem, cria; garante também o registro pessoal
-    const sp=splitDB();
-    if(!shared)await sb.from('catalog').upsert({id:1,data:sp.shared});
-    if(!personal||pn)await sb.from('app_state').upsert({user_id:sbUser.id,data:sp.personal});
-  }catch(e){toast('Não foi possível carregar da nuvem — usando dados locais','⚠️')}
+    lastCatalogSig=catalogSig();
+    if(shared&&((shared.species&&shared.species.length)||(shared.sizes&&shared.sizes.length)))catalogLoaded=true;
+    if(!personal)await sb.from('app_state').upsert({user_id:sbUser.id,data:personalPayload()});
+    if(!shared&&(DB.species.length+DB.sizes.length)>0)await sb.from('catalog').upsert({id:1,data:catalogPayload()});
+  }catch(e){toast('Sem conexão com a nuvem agora — usando os dados salvos no aparelho','⚠️')}
 }
 function cloudSave(){
   if(!sb||!sbUser)return;
   clearTimeout(cloudTimer);
   cloudTimer=setTimeout(async()=>{
     try{
-      const sp=splitDB();
-      await Promise.all([
-        sb.from('app_state').upsert({user_id:sbUser.id,data:sp.personal,updated_at:new Date().toISOString()}),
-        sb.from('catalog').upsert({id:1,data:sp.shared,updated_at:new Date().toISOString()})
-      ]);
-    }catch(e){toast('Falha ao sincronizar com a nuvem','⚠️')}
-  },1200);
+      // dados do vendedor: sempre salvos (linha própria, sem conflito com ninguém)
+      await sb.from('app_state').upsert({user_id:sbUser.id,data:personalPayload(),updated_at:new Date().toISOString()});
+      // catálogo: grava só se mudou de verdade e não está vazio (protege contra apagar sem querer)
+      const sig=catalogSig();const hasItems=(DB.species.length+DB.sizes.length)>0;
+      if(sig!==lastCatalogSig&&(hasItems||catalogLoaded)){
+        try{ // mescla com o remoto antes de gravar, para não sobrescrever mudança de outro vendedor
+          const {data}=await sb.from('catalog').select('data').eq('id',1).maybeSingle();
+          const remote=data&&data.data;
+          if(remote){
+            const catDel=new Set([...(remote._deleted||[]),...(DB._catDeleted||[])]);
+            SHARED_ARRS.forEach(k=>{DB[k]=mergeById(remote[k],DB[k]).filter(x=>x&&!catDel.has(x.id))});
+            DB._catDeleted=[...catDel];
+            localStorage.setItem(KEY,JSON.stringify(DB));
+          }
+        }catch(e){}
+        await sb.from('catalog').upsert({id:1,data:catalogPayload(),updated_at:new Date().toISOString()});
+        lastCatalogSig=catalogSig();catalogLoaded=true;
+      }
+    }catch(e){toast('Falha ao sincronizar — vamos tentar de novo','⚠️')}
+  },1000);
 }
 async function doLogout(){
   if(sb){try{await sb.auth.signOut()}catch(e){}}
